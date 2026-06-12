@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>小杨和小青的回忆</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <section id="lock-screen" class="lock-screen" aria-labelledby="lock-title">
+      <form id="lock-form" class="lock-card">
+        <p class="eyebrow">Private Memories</p>
+        <h1 id="lock-title">小杨和小青的秘密相册</h1>
+        <p>这是一段只想给重要的人看的回忆。输入密码后，就可以进入我们的时间里。</p>
+        <label class="lock-field">
+          <span>访问密码</span>
+          <input id="site-password" type="password" autocomplete="current-password" placeholder="输入密码">
+        </label>
+        <button class="primary-submit" type="submit">进入回忆</button>
+        <p id="lock-message" class="lock-message" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <header class="site-nav" aria-label="页面导航">
+      <a class="brand" href="#home">小杨和小青</a>
+      <nav>
+        <a href="#story">故事</a>
+        <a href="#film">胶片</a>
+        <a href="#gallery">相册</a>
+        <a href="#letter">写给你</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="home" class="hero" aria-labelledby="hero-title">
+        <img class="hero-image" src="./assets/photos-web/photo-8.jpg" alt="小杨和小青的回忆照片" fetchpriority="high" decoding="async">
+        <div class="hero-shade" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <p class="eyebrow">Memory No. 520</p>
+          <h1 id="hero-title">小杨和小青</h1>
+          <p class="hero-text">
+            我们把普通日子过成了会发光的回忆。街角、镜子、生日、夜晚和牵着手的瞬间，都在这里慢慢靠近。
+          </p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#gallery">看我们的相册</a>
+            <button id="shuffle-memory" class="ghost-button" type="button">随机一张</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="story" class="story-band" aria-labelledby="story-title">
+        <div class="section-heading">
+          <p class="eyebrow">Our Little Universe</p>
+          <h2 id="story-title">把喜欢藏进每一张照片里</h2>
+        </div>
+        <div class="story-layout">
+          <article class="memory-feature">
+            <img id="feature-image" src="./assets/photos-web/photo-6.jpg" alt="精选回忆" loading="lazy" decoding="async">
+            <div>
+              <p id="feature-kicker">生日夜</p>
+              <h3 id="feature-title">有你在，愿望就变得具体</h3>
+              <p id="feature-copy">那些没有说完的话，都在灯光、蛋糕和笑意里，替我们慢慢说完。</p>
+            </div>
+          </article>
+          <ol id="timeline" class="timeline" aria-label="回忆时间线"></ol>
+        </div>
+      </section>
+
+      <section id="film" class="film-section" aria-labelledby="film-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Film Roll</p>
+            <h2 id="film-title">像胶片一样滑过这些瞬间</h2>
+          </div>
+          <div class="film-controls">
+            <button id="film-prev" type="button" aria-label="上一张胶片">‹</button>
+            <button id="film-play" type="button">自动播放</button>
+            <button id="film-next" type="button" aria-label="下一张胶片">›</button>
+          </div>
+        </div>
+        <div class="film-window">
+          <div id="film-track" class="film-track"></div>
+        </div>
+      </section>
+
+      <section id="gallery" class="gallery-section" aria-labelledby="gallery-title">
+        <div class="section-heading gallery-heading">
+          <div>
+            <p class="eyebrow">Photo Wall</p>
+            <h2 id="gallery-title">这些都是我们的回忆</h2>
+            <p class="gallery-note">新上传的照片会自动加入照片墙，也会进入上面的循环胶卷。</p>
+          </div>
+          <button id="open-upload" class="upload-button" type="button">点击此处上传照片</button>
+        </div>
+        <p id="upload-status" class="upload-status" aria-live="polite"></p>
+        <div id="gallery-grid" class="gallery-grid"></div>
+      </section>
+
+      <section id="letter" class="letter-section" aria-labelledby="letter-title">
+        <div>
+          <p class="eyebrow">For Us</p>
+          <h2 id="letter-title">写给小杨和小青</h2>
+        </div>
+        <p>
+          愿以后每一次回头，都能看见这一路有笑、有光、有被认真收藏的瞬间。照片会越来越多，故事也会越来越长。
+        </p>
+      </section>
+    </main>
+
+    <dialog id="memory-dialog" class="memory-dialog" aria-labelledby="dialog-title">
+      <button id="close-dialog" class="close-button" type="button" aria-label="关闭">×</button>
+      <img id="dialog-image" alt="">
+      <div class="dialog-copy">
+        <p id="dialog-date"></p>
+        <h3 id="dialog-title"></h3>
+        <p id="dialog-text"></p>
+        <button id="edit-memory" class="secondary-button" type="button">编辑名字和故事</button>
+      </div>
+    </dialog>
+
+    <dialog id="memory-form-dialog" class="form-dialog" aria-labelledby="form-dialog-title">
+      <form id="memory-form" method="dialog">
+        <div class="form-head">
+          <div>
+            <p class="eyebrow">Memory Editor</p>
+            <h3 id="form-dialog-title">添加新的回忆</h3>
+          </div>
+          <button id="cancel-form" class="close-button form-close" type="button" aria-label="关闭">×</button>
+        </div>
+
+        <label id="file-field" class="field file-field">
+          <span>选择照片</span>
+          <input id="form-photo" type="file" accept="image/*">
+        </label>
+        <img id="form-preview" class="form-preview" alt="">
+
+        <label class="field">
+          <span>照片名字</span>
+          <input id="form-title-input" type="text" placeholder="比如：生日夜的小愿望">
+        </label>
+        <label class="field">
+          <span>日期 / 场景</span>
+          <input id="form-date-input" type="text" placeholder="比如：2026 春天 / 夜路散步">
+        </label>
+        <label class="field">
+          <span>照片故事</span>
+          <textarea id="form-text-input" rows="5" placeholder="写下这张照片背后的回忆。"></textarea>
+        </label>
+
+        <button class="primary-submit" type="submit">保存到回忆里</button>
+      </form>
+    </dialog>
+
+    <script src="./supabase-config.js"></script>
+    <script src="./vendor/supabase.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
