@@ -71,6 +71,9 @@ let previewUrl = "";
 let filmFlowing = true;
 let uploadedObjectUrls = [];
 let supabaseClient = null;
+let realtimeChannel = null;
+let refreshTimer = 0;
+let memorySignature = "";
 
 const heroImage = document.querySelector(".hero-image");
 const shuffleButton = document.querySelector("#shuffle-memory");
@@ -95,6 +98,7 @@ const openUploadButton = document.querySelector("#open-upload");
 const uploadStatus = document.querySelector("#upload-status");
 const formDialog = document.querySelector("#memory-form-dialog");
 const memoryForm = document.querySelector("#memory-form");
+const formSubmitButton = memoryForm.querySelector(".primary-submit");
 const formDialogTitle = document.querySelector("#form-dialog-title");
 const fileField = document.querySelector("#file-field");
 const formPhoto = document.querySelector("#form-photo");
@@ -160,6 +164,17 @@ function markSupabaseStatus() {
   document.documentElement.dataset.supabaseReady = getSupabaseClient() ? "true" : "false";
 }
 
+function getMemorySignature(list = memories) {
+  return list.map((memory) => [
+    memory.type,
+    memory.id,
+    memory.src,
+    memory.date,
+    memory.title,
+    memory.text
+  ].join(":")).join("|");
+}
+
 function publicPhotoUrl(path) {
   const client = getSupabaseClient();
   if (!client) return "";
@@ -174,6 +189,54 @@ function safeFileName(name) {
     .replace(/[^a-z0-9._-]/g, "")
     .replace(/-+/g, "-")
     || "memory-photo";
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("这张照片暂时无法读取，请换一张 JPG 或 PNG。"));
+    };
+    image.src = url;
+  });
+}
+
+async function optimizePhotoForUpload(file) {
+  if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
+
+  const image = await loadImageFromFile(file);
+  const maxSide = 1600;
+  const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
+  const scale = Math.min(1, maxSide / largestSide);
+
+  if (scale === 1 && file.size < 900 * 1024 && file.type === "image/jpeg") return file;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) {
+        resolve(result);
+      } else {
+        reject(new Error("照片压缩失败，请换一张照片再试。"));
+      }
+    }, "image/jpeg", 0.78);
+  });
+
+  return new File([blob], `${safeFileName(file.name)}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now()
+  });
 }
 
 function saveLocalEdit(id, fields) {
@@ -330,11 +393,25 @@ async function loadMemories() {
       };
     });
     memories = [...applyBaseEdits(), ...uploadedMemories, ...cloud];
+    const nextSignature = getMemorySignature(memories);
+    const changed = nextSignature !== memorySignature;
+    memorySignature = nextSignature;
+    return changed;
   } catch (error) {
     memories = applyBaseEdits();
     uploadStatus.textContent = "读取云端照片失败，已显示固定照片。请检查 Supabase 配置。";
     console.error(error);
+    return false;
   }
+}
+
+async function syncMemoriesFromCloud() {
+  if (!getSupabaseClient() || formDialog.open) return;
+  const previousIndex = activeIndex;
+  const changed = await loadMemories();
+  if (!changed) return;
+  activeIndex = Math.min(previousIndex, memories.length - 1);
+  renderAll();
 }
 
 function setFeature(index) {
@@ -424,6 +501,27 @@ function renderAll() {
   setFilmFlowState(true);
 }
 
+function startCloudAutoRefresh() {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  if (!realtimeChannel && client.channel) {
+    realtimeChannel = client
+      .channel("memory-photos-live")
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: supabaseConfig.table
+      }, syncMemoriesFromCloud)
+      .subscribe();
+  }
+
+  clearInterval(refreshTimer);
+  refreshTimer = window.setInterval(() => {
+    if (!document.hidden) syncMemoriesFromCloud();
+  }, 12000);
+}
+
 function resetFormPreview() {
   if (previewUrl) URL.revokeObjectURL(previewUrl);
   previewUrl = "";
@@ -475,6 +573,9 @@ function getFormFields(file) {
 
 async function saveForm(event) {
   event.preventDefault();
+  const submitText = formSubmitButton.textContent;
+  formSubmitButton.disabled = true;
+  formSubmitButton.textContent = "正在保存...";
 
   try {
     if (formMode === "create") {
@@ -484,8 +585,12 @@ async function saveForm(event) {
         return;
       }
       if (getSupabaseClient()) {
-        await saveCloudPhoto(file, getFormFields(file));
+        uploadStatus.textContent = "正在压缩照片，马上上传。";
+        const optimizedFile = await optimizePhotoForUpload(file);
+        uploadStatus.textContent = "正在上传到云端，请稍等。";
+        await saveCloudPhoto(optimizedFile, getFormFields(file));
       } else {
+        uploadStatus.textContent = "正在保存到本机浏览器。";
         await saveUploadedPhoto(file, getFormFields(file));
       }
       await loadMemories();
@@ -512,8 +617,11 @@ async function saveForm(event) {
     if (dialog.open) openMemory(activeIndex);
     closeForm();
   } catch (error) {
-    uploadStatus.textContent = "保存失败，可能是浏览器存储空间不足。";
+    uploadStatus.textContent = `保存失败：${error?.message || "请检查网络后再试一次。"}`;
     console.error(error);
+  } finally {
+    formSubmitButton.disabled = false;
+    formSubmitButton.textContent = submitText;
   }
 }
 
@@ -581,4 +689,5 @@ window.addEventListener("keydown", (event) => {
 (async function init() {
   await loadMemories();
   renderAll();
+  startCloudAutoRefresh();
 })();
