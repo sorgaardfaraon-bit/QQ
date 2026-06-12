@@ -181,6 +181,19 @@ function publicPhotoUrl(path) {
   return client.storage.from(supabaseConfig.bucket).getPublicUrl(path).data.publicUrl;
 }
 
+async function cloudPhotoUrl(path) {
+  const client = getSupabaseClient();
+  if (!client) return "";
+
+  const { data, error } = await client
+    .storage
+    .from(supabaseConfig.bucket)
+    .createSignedUrl(path, 60 * 60 * 24 * 7);
+
+  if (!error && data?.signedUrl) return data.signedUrl;
+  return publicPhotoUrl(path);
+}
+
 function safeFileName(name) {
   const baseName = name.replace(/\.[^.]+$/, "");
   return baseName
@@ -288,14 +301,14 @@ async function readCloudMemories() {
 
   if (error) throw error;
 
-  return (data || []).map((item) => ({
+  return Promise.all((data || []).map(async (item) => ({
     id: item.id,
     type: "cloud",
-    src: publicPhotoUrl(item.image_path),
+    src: await cloudPhotoUrl(item.image_path),
     date: item.date,
     title: item.title,
     text: item.text
-  }));
+  })));
 }
 
 async function saveUploadedPhoto(file, fields) {
